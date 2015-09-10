@@ -5,11 +5,13 @@
  * @author Vitaliy Potapov <noginsk@rambler.ru>
  * @link https://github.com/vitalets/x-editable-yii
  * @copyright Copyright &copy; Vitaliy Potapov 2012
- * @version 1.3.0
+ * @version 1.3.2
  */
 
 class EditableConfig extends CApplicationComponent
 {
+
+    const FORM_YII_BOOTSTRAP = 'yii_bootstrap';
     const FORM_BOOTSTRAP = 'bootstrap';
     const FORM_JQUERYUI = 'jqueryui';
     const FORM_PLAIN = 'plain';

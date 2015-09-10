@@ -5,7 +5,7 @@
  * @author Vitaliy Potapov <noginsk@rambler.ru>
  * @link https://github.com/vitalets/x-editable-yii
  * @copyright Copyright &copy; Vitaliy Potapov 2012
- * @version 1.3.0
+ * @version 1.3.2
  */
 
 /**
@@ -101,24 +101,26 @@ class EditableSaver extends CComponent
         $this->primaryKey = yii::app()->request->getParam('pk');
         $this->attribute = yii::app()->request->getParam('name');
         $this->value = yii::app()->request->getParam('value');
-        $this->scenario = yii::app()->request->getParam('scenario', 'editable');
+        $this->scenario = yii::app()->request->getParam('scenario');
 
         //checking params
         if (empty($this->attribute)) {
             throw new CException(Yii::t('EditableSaver.editable','Property "attribute" should be defined.'));
         }
-        if (empty($this->primaryKey)) {
-            throw new CException(Yii::t('EditableSaver.editable','Property "primaryKey" should be defined.'));
-        }
-
+        
         $this->model = new $this->modelClass();
         
+        $isFormModel = $this->model instanceOf CFormModel;
         $isMongo = EditableField::isMongo($this->model);
+        
+        if (empty($this->primaryKey) && !$isFormModel) {
+            throw new CException(Yii::t('EditableSaver.editable','Property "primaryKey" should be defined.'));
+        }
         
         //loading model
         if($isMongo) {
         	$this->model = $this->model->findByPk(new MongoID($this->primaryKey));
-		} else {
+		} elseif(!$isFormModel) {
 			$this->model = $this->model->findByPk($this->primaryKey);
 		}
         
@@ -130,7 +132,7 @@ class EditableSaver extends CComponent
         //keep parent model for mongo
         $originalModel = $this->model;
         
-        //for mongo we should resolve model to check attribute safety
+        //resolve model only for mongo! we should check attribute safety
         if($isMongo) {
 			$resolved = EditableField::resolveModels($this->model, $this->attribute);
 			$this->model = $resolved['model']; //can be related model now
@@ -141,7 +143,9 @@ class EditableSaver extends CComponent
 		}
 
         //set scenario for main model
-        $originalModel->setScenario($this->scenario);
+        if($this->scenario) {
+            $originalModel->setScenario($this->scenario);
+        }
 
         //is attribute safe
         if (!$this->model->isAttributeSafe($this->attribute)) {
@@ -170,7 +174,14 @@ class EditableSaver extends CComponent
         }
         
         //saving (no validation, only changed attributes) note: for mongo save all!
-        if ($originalModel->save(false, $isMongo ? null : $this->changedAttributes)) {
+        if($isMongo) {
+            $result = $originalModel->save(false, null);
+        } elseif(!$isFormModel) {
+            $result = $originalModel->save(false, $this->changedAttributes);
+        } else {
+            $result = true;
+        } 
+        if ($result) {
             $this->afterUpdate();
         } else {
             $this->error(Yii::t('EditableSaver.editable', 'Error while saving record!'));

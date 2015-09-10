@@ -5,7 +5,7 @@
  * @author Vitaliy Potapov <noginsk@rambler.ru>
  * @link https://github.com/vitalets/x-editable-yii
  * @copyright Copyright &copy; Vitaliy Potapov 2012
- * @version 1.3.0
+ * @version 1.3.2
  */
 
 Yii::import('editable.EditableField');
@@ -35,39 +35,40 @@ class EditableColumn extends CDataColumn
         //need to attach ajaxUpdate handler to refresh editables on pagination and sort
         Editable::attachAjaxUpdateEvent($this->grid);
     }
-   
-    
-    protected function renderDataCellContent($row, $data)
+
+    //protected was removed due to https://github.com/vitalets/x-editable-yii/issues/63
+    public function renderDataCellContent($row, $data)
     {
         $isModel = $data instanceOf CModel;
-        
+
         if($isModel) {
             $widgetClass = 'EditableField';
             $options = array(
                 'model'        => $data,
                 'attribute'    => empty($this->editable['attribute']) ? $this->name : $this->editable['attribute'],
             );
-            
-            //flag to pass `text` option into widget
-            $passText = strlen($this->value);     
+
+            //if value defined in column config --> we should evaluate it
+            //and pass to widget via `text` option: set flag `passText` = true
+            $passText = !empty($this->value);
         } else {
             $widgetClass = 'Editable';
             $options = array(
                 'pk'           => $data[$this->grid->dataProvider->keyField],
                 'name'         => empty($this->editable['name']) ? $this->name : $this->editable['name'],
             );
-            
+
             $passText = true;
-            //if autotext will be applied, do not pass text param
-            if(!strlen($this->value) && Editable::isAutotext($this->editable, isset($this->editable['type']) ? $this->editable['type'] : '')) {
-               $options['value'] = $data[$this->name]; 
+            //if autotext will be applied, do not pass `text` option (pass `value` instead)
+            if(empty($this->value) && Editable::isAutotext($this->editable, isset($this->editable['type']) ? $this->editable['type'] : '')) {
+               $options['value'] = $data[$this->name];
                $passText = false;
-            } 
+            }
         }
-        
+
         //for live update
         $options['liveTarget'] = $this->grid->id;
-        
+
         $options = CMap::mergeArray($this->editable, $options);
 
         //if value defined for column --> use it as element text
@@ -78,24 +79,41 @@ class EditableColumn extends CDataColumn
             $options['text'] = $text;
             $options['encode'] = false;
         }
-        
+
         //apply may be a string expression, see https://github.com/vitalets/x-editable-yii/issues/33
         if (isset($options['apply']) && is_string($options['apply'])) {
             $options['apply'] = $this->evaluateExpression($options['apply'], array('data'=>$data, 'row'=>$row));
         }
 
-        // add additional data for source link requests
-        if (isset($options['additional_data']) && is_array($options['additional_data'])) {
-            foreach($options['additional_data'] as $data_key => $data_value_expression)
-            {
-                if(is_string($data_value_expression))
-                    $options['additional_data'][$data_key] = $this->evaluateExpression($data_value_expression, array('data'=>$data, 'row'=>$row));
+        //evaluate htmlOptions inside editable config as they can depend on $data
+        //see https://github.com/vitalets/x-editable-yii/issues/40
+        if (isset($options['htmlOptions']) && is_array($options['htmlOptions'])) {
+            foreach($options['htmlOptions'] as $k => $v) {
+                if(is_string($v) && (strpos($v, '$data') !== false || strpos($v, '$row') !== false)) {
+                    $options['htmlOptions'][$k] = $this->evaluateExpression($v, array('data'=>$data, 'row'=>$row));
+                }
             }
-        }           
-        
+        }
+
+
+        //add dynamic scenario
+        if ($isModel && !isset($options['htmlOptions']['data-scenario'])) {
+            $options['htmlOptions']['scenario'] = $data->getScenario();
+        }
+
+
+        //evaluate `params` as they can depend on $data
+        //see https://github.com/vitalets/x-editable-yii/issues/65
+        if (isset($options['params']) && is_array($options['params'])) {
+            foreach($options['params'] as $k => $v) {
+                if(is_string($v) && (strpos($v, '$data') !== false || strpos($v, '$row') !== false)) {
+                    $options['params'][$k] = $this->evaluateExpression($v, array('data'=>$data, 'row'=>$row));
+                }
+            }
+        }
         $this->grid->controller->widget($widgetClass, $options);
     }
-    
+
     /*
     Require this overwrite to show bootstrap sort icons
     */
@@ -105,7 +123,7 @@ class EditableColumn extends CDataColumn
             parent::renderHeaderCellContent();
             return;
         }
-        
+
         if ($this->grid->enableSorting && $this->sortable && $this->name !== null)
         {
             $sort = $this->grid->dataProvider->getSort();
@@ -128,20 +146,20 @@ class EditableColumn extends CDataColumn
             else
                 parent::renderHeaderCellContent();
         }
-    } 
-    
+    }
+
     /*
     Require this overwrite to show bootstrap filter field
-    */    
+    */
     public function renderFilterCell()
     {
         if(yii::app()->editable->form != EditableConfig::FORM_BOOTSTRAP) {
             parent::renderFilterCell();
             return;
         }
-                
+
         echo '<td><div class="filter-container">';
         $this->renderFilterCellContent();
         echo '</div></td>';
-    }       
+    }
 }

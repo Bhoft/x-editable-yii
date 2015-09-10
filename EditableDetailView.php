@@ -5,7 +5,7 @@
  * @author Vitaliy Potapov <noginsk@rambler.ru>
  * @link https://github.com/vitalets/x-editable-yii
  * @copyright Copyright &copy; Vitaliy Potapov 2012
- * @version 1.3.0
+ * @version 1.3.2
  */
 
 Yii::import('editable.EditableField');
@@ -44,7 +44,7 @@ class EditableDetailView extends CDetailView
 
         //set bootstrap css
         if(yii::app()->editable->form === EditableConfig::FORM_BOOTSTRAP) {
-            $this->htmlOptions = array('class'=> 'table table-bordered table-striped table-hover');
+            $this->htmlOptions = array('class'=> 'detail-view table table-bordered table-striped table-hover table-condensed');
             //disable loading Yii's css for bootstrap
             $this->cssFile = false;
         }
@@ -108,10 +108,18 @@ class EditableDetailView extends CDetailView
     private function getEditableProperties() {
         if(!isset($this->_editableProperties)) {
             $reflection = new ReflectionClass('EditableField');
-            $this->_editableProperties = array_map(function($d){return $d->getName();},$reflection->getProperties());
+            //$this->_editableProperties = array_map(function($d){return $d->getName();},$reflection->getProperties());
+            $this->_editableProperties = array_map( array($this,'map_function'),$reflection->getProperties());
         }
         return $this->_editableProperties;
     }
+
+    // added map_function for php < 5.3
+    public function map_function($d)
+    {
+        return $d->getName();
+    }
+
 
     /**
      * (non-PHPdoc)
