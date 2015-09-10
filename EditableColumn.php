@@ -98,7 +98,7 @@ class EditableColumn extends CDataColumn
 
         //add dynamic scenario
         if ($isModel && !isset($options['htmlOptions']['data-scenario'])) {
-            $options['htmlOptions']['scenario'] = $data->getScenario();
+            $options['htmlOptions']['data-scenario'] = $data->getScenario();
         }
 
 
